@@ -1,0 +1,294 @@
+openapi: 3.0.3
+info:
+  title: HR Attendance System API
+  description: API documentation for HR attendance system
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+paths:
+  /login:
+    post:
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+
+  /myRecords/{userID}:
+    get:
+      summary: Get today's attendance record
+      parameters:
+        - in: path
+          name: userID
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Today's attendance record
+
+  /historyRecords/{userID}:
+    get:
+      summary: Get this month's attendance history
+      parameters:
+        - in: path
+          name: userID
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Attendance history
+
+  /historyRecords/{userID}/{StartDate-EndDate}:
+    get:
+      summary: Get attendance history for a period
+      parameters:
+        - in: path
+          name: userID
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: StartDate-EndDate
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Period attendance history
+
+  /thisMonth/{department}/{userID}:
+    get:
+      summary: Get this month's team report
+      parameters:
+        - in: path
+          name: department
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: userID
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Team report for this month
+
+  /thisWeek/{department}/{userID}:
+    get:
+      summary: Get this week's team report
+      parameters:
+        - in: path
+          name: department
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: userID
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Team report for this week
+
+  /PeriodTime/{department}/{From-to}/{userID}:
+    get:
+      summary: Get custom period team report
+      parameters:
+        - in: path
+          name: department
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: From-to
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: userID
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Team report for custom period
+
+  /AlertList/{From-to}/{userID}:
+    post:
+      summary: Get overtime alert list
+      parameters:
+        - in: path
+          name: From-to
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: userID
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Alert list
+
+  /inChargeDepartment/{userID}:
+    post:
+      summary: Get departments in charge
+      parameters:
+        - in: path
+          name: userID
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Departments user can manage
+
+  /SummaryExportCSV/{department}/{From-to}/{userID}:
+    get:
+      summary: Export team summary as CSV
+      parameters:
+        - in: path
+          name: department
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: From-to
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: userID
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Download CSV file
+
+  /SummaryExportPDF/{department}/{From-to}/{userID}:
+    get:
+      summary: Export team summary as PDF
+      parameters:
+        - in: path
+          name: department
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: From-to
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: userID
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Download PDF file
+
+  /permissions/{userID}:
+    get:
+      summary: Get department permissions
+      parameters:
+        - in: path
+          name: userID
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of departments
+
+  /filterAttendence:
+    get:
+      summary: Filter attendance logs
+      parameters:
+        - in: query
+          name: department
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: fromDate
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: toDate
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Filtered attendance records
+
+  /exportAttendenceCSV:
+    get:
+      summary: Export filtered attendance CSV
+      parameters:
+        - in: query
+          name: department
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: fromDate
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: toDate
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Download CSV
+
+  /exportAttendencePDF:
+    get:
+      summary: Export filtered attendance PDF
+      parameters:
+        - in: query
+          name: department
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: fromDate
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: toDate
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Download PDF
