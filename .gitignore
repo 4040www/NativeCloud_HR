@@ -22,3 +22,5 @@ go.sum
 .idea/
 .DS_Store
 
+# Python 相關
+.venv/
