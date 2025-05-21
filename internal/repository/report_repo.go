@@ -5,6 +5,7 @@ import (
 
 	"github.com/4040www/NativeCloud_HR/internal/db"
 	"github.com/4040www/NativeCloud_HR/internal/model"
+	"gorm.io/gorm"
 )
 
 func GetAccessLogsByEmployeeBetween(employeeID string, start, end time.Time) ([]model.AccessLog, error) {
@@ -21,21 +22,21 @@ func GetAllEmployees() ([]model.Employee, error) {
 }
 
 // 原本的 GetEmployeeByID 函數
-func GetEmployeeByID(id string) (*model.Employee, error) {
-	var emp model.Employee
-	err := db.DB.Where("employee_id = ?", id).First(&emp).Error
-	return &emp, err
-}
+// func GetEmployeeByID(id string) (*model.Employee, error) {
+// 	var emp model.Employee
+// 	err := db.DB.Where("employee_id = ?", id).First(&emp).Error
+// 	return &emp, err
+// }
 
 // For unit test
-// func GetEmployeeByID(db *gorm.DB, id string) (*model.Employee, error) {
-// 	var emp model.Employee
-// 	err := db.Where("employee_id = ?", id).First(&emp).Error
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return &emp, nil
-// }
+func GetEmployeeByID(db *gorm.DB, id string) (*model.Employee, error) {
+	var emp model.Employee
+	err := db.Where("employee_id = ?", id).First(&emp).Error
+	if err != nil {
+		return nil, err
+	}
+	return &emp, nil
+}
 
 // Page: Attendance Page
 func GetDepartmentsByManager(userID string) ([]string, error) {
