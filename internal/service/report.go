@@ -8,6 +8,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/4040www/NativeCloud_HR/internal/db"
 	"github.com/4040www/NativeCloud_HR/internal/model"
 	"github.com/4040www/NativeCloud_HR/internal/repository"
 	"github.com/jung-kurt/gofpdf"
@@ -15,6 +16,7 @@ import (
 
 // Get simple employee's attendance summary
 func GetTodayAttendanceSummary(userID string) (*model.AttendanceSummary, error) {
+	DB := db.GetDB() // Get the DB instance for unit tests
 	logs, err := FetchTodayRecords(userID)
 	if err != nil {
 		return nil, err
@@ -23,7 +25,7 @@ func GetTodayAttendanceSummary(userID string) (*model.AttendanceSummary, error) 
 		return nil, nil
 	}
 
-	emp, err := repository.GetEmployeeByID(userID)
+	emp, err := repository.GetEmployeeByID(DB, userID) // Modified to use the DB instance for unit tests
 	if err != nil {
 		return nil, err
 	}
@@ -75,12 +77,13 @@ func GetTodayAttendanceSummary(userID string) (*model.AttendanceSummary, error) 
 }
 
 func GetAttendanceWithEmployee(userID string, start, end time.Time) ([]model.AttendanceSummary, error) {
+	DB := db.GetDB() // Get the DB instance for unit tests
 	records, err := repository.GetAccessLogsByEmployeeBetween(userID, start, end.Add(24*time.Hour))
 	if err != nil {
 		return nil, err
 	}
 
-	emp, err := repository.GetEmployeeByID(userID)
+	emp, err := repository.GetEmployeeByID(DB, userID) // Modified to use the DB instance for unit tests
 	if err != nil {
 		return nil, err
 	}
@@ -320,7 +323,7 @@ func GenerateAlertList(startDate, endDate string) ([]map[string]interface{}, err
 //	}
 func GetManagedDepartments(userID string) []string {
 	fmt.Println("GetManagedDepartments called with userID:", userID)
-	depts, err := repository.GetManagedDepartmentsFromDB(userID)
+	depts, err := GetManagedDepartmentsFromDB(userID)
 	if err != nil || len(depts) == 0 {
 		// fallback（或回傳空陣列）
 		return []string{}
