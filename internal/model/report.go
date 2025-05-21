@@ -13,6 +13,16 @@ type AccessLog struct {
 	AccessResult string
 }
 
+type AttendanceSummary struct {
+	Date         string `json:"date"`
+	Name         string `json:"name"`
+	ClockInTime  string `json:"clock_in_time"`
+	ClockOutTime string `json:"clock_out_time"`
+	ClockInGate  string `json:"clock_in_gate"`
+	ClockOutGate string `json:"clock_out_gate"`
+	Status       string `json:"status"`
+}
+
 type MyRecordResponse struct {
 	Date         string `json:"date"`
 	Name         string `json:"name"`

@@ -24,3 +24,5 @@ func AuthenticateUser(email, password string) (*model.Employee, string, error) {
 
 	return user, token, nil
 }
+
+
