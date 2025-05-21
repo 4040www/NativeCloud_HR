@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/4040www/NativeCloud_HR/internal/model"
-	"github.com/4040www/NativeCloud_HR/internal/repository"
 	"github.com/4040www/NativeCloud_HR/internal/service"
 	"github.com/gin-gonic/gin"
 )
@@ -24,187 +22,242 @@ type AttendanceSummary struct {
 func GetMyTodayRecords(c *gin.Context) {
 	userID := c.Param("userID")
 
-	logs, err := service.FetchTodayRecords(userID)
+	summary, err := service.GetTodayAttendanceSummary(userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
-	if len(logs) == 0 {
+	if summary == nil {
 		c.JSON(http.StatusOK, gin.H{"message": "no access records today"})
 		return
 	}
+	c.JSON(http.StatusOK, summary)
 
-	emp, err := repository.GetEmployeeByID(userID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "employee not found"})
-		return
-	}
-
-	var clockIn, clockOut *model.AccessLog
-	isLate := false
-
-	for _, log := range logs {
-		if log.Direction == "IN" && (clockIn == nil || log.AccessTime.Before(clockIn.AccessTime)) {
-			clockIn = &log
-			if log.AccessTime.Hour() > 8 || (log.AccessTime.Hour() == 8 && log.AccessTime.Minute() > 30) {
-				isLate = true
-			}
-		}
-		if log.Direction == "OUT" && (clockOut == nil || log.AccessTime.After(clockOut.AccessTime)) {
-			clockOut = &log
-		}
-	}
-
-	resp := gin.H{
-		"date":           clockIn.AccessTime.Format("2006-01-02"),
-		"name":           emp.FirstName + " " + emp.LastName,
-		"clock_in_time":  clockIn.AccessTime.Format("15:04"),
-		"clock_out_time": clockOut.AccessTime.Format("15:04"),
-		"clock_in_gate":  clockIn.GateName,
-		"clock_out_gate": clockOut.GateName,
-		"status":         "Normal",
-	}
-	if isLate {
-		resp["status"] = "Late"
-	}
-
-	c.JSON(http.StatusOK, resp)
 }
+
+// func GetMyTodayRecords(c *gin.Context) {
+// 	userID := c.Param("userID")
+
+// 	logs, err := service.FetchTodayRecords(userID)
+// 	if err != nil {
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+// 		return
+// 	}
+
+// 	if len(logs) == 0 {
+// 		c.JSON(http.StatusOK, gin.H{"message": "no access records today"})
+// 		return
+// 	}
+
+// 	emp, err := repository.GetEmployeeByID(userID)
+// 	if err != nil {
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "employee not found"})
+// 		return
+// 	}
+
+// 	var clockIn, clockOut *model.AccessLog
+// 	isLate := false
+
+// 	for _, log := range logs {
+// 		if log.Direction == "IN" && (clockIn == nil || log.AccessTime.Before(clockIn.AccessTime)) {
+// 			clockIn = &log
+// 			if log.AccessTime.Hour() > 8 || (log.AccessTime.Hour() == 8 && log.AccessTime.Minute() > 30) {
+// 				isLate = true
+// 			}
+// 		}
+// 		if log.Direction == "OUT" && (clockOut == nil || log.AccessTime.After(clockOut.AccessTime)) {
+// 			clockOut = &log
+// 		}
+// 	}
+
+// 	resp := gin.H{
+// 		"date":           clockIn.AccessTime.Format("2006-01-02"),
+// 		"name":           emp.FirstName + " " + emp.LastName,
+// 		"clock_in_time":  clockIn.AccessTime.Format("15:04"),
+// 		"clock_out_time": clockOut.AccessTime.Format("15:04"),
+// 		"clock_in_gate":  clockIn.GateName,
+// 		"clock_out_gate": clockOut.GateName,
+// 		"status":         "Normal",
+// 	}
+// 	if isLate {
+// 		resp["status"] = "Late"
+// 	}
+
+// 	c.JSON(http.StatusOK, resp)
+// }
 
 func GetMyHistoryRecords(c *gin.Context) {
 	userID := c.Param("userID")
-
-	// 計算預設區間：今天往前 30 天
 	end := time.Now()
 	start := end.AddDate(0, 0, -30)
-	startDate := start.Format("2006-01-02")
-	endDate := end.Format("2006-01-02")
 
-	records, err := service.FetchHistoryRecordsBetween(userID, startDate, endDate)
+	summaries, err := service.GetAttendanceWithEmployee(userID, start, end)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	c.JSON(http.StatusOK, summaries)
 
-	emp, err := repository.GetEmployeeByID(userID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "employee not found"})
-		return
-	}
-
-	dateMap := make(map[string][]model.AccessLog)
-	for _, r := range records {
-		day := r.AccessTime.Format("2006-01-02")
-		dateMap[day] = append(dateMap[day], r)
-	}
-
-	var results []AttendanceSummary
-	for date, logs := range dateMap {
-		var clockIn, clockOut *model.AccessLog
-		status := "On Time"
-
-		for _, log := range logs {
-			if log.Direction == "IN" && (clockIn == nil || log.AccessTime.Before(clockIn.AccessTime)) {
-				clockIn = &log
-				if log.AccessTime.Hour() > 8 || (log.AccessTime.Hour() == 8 && log.AccessTime.Minute() > 30) {
-					status = "Late"
-				}
-			}
-			if log.Direction == "OUT" && (clockOut == nil || log.AccessTime.After(clockOut.AccessTime)) {
-				clockOut = &log
-			}
-		}
-
-		if clockIn == nil || clockOut == nil {
-			status = "Abnormal"
-		}
-
-		results = append(results, AttendanceSummary{
-			Date:         date,
-			Name:         emp.FirstName + " " + emp.LastName,
-			ClockInTime:  formatTime(clockIn),
-			ClockOutTime: formatTime(clockOut),
-			ClockInGate:  getGate(clockIn),
-			ClockOutGate: getGate(clockOut),
-			Status:       status,
-		})
-	}
-
-	c.JSON(http.StatusOK, results)
 }
+
+// func GetMyHistoryRecords(c *gin.Context) {
+// 	userID := c.Param("userID")
+
+// 	// 計算預設區間：今天往前 30 天
+// 	end := time.Now()
+// 	start := end.AddDate(0, 0, -30)
+// 	startDate := start.Format("2006-01-02")
+// 	endDate := end.Format("2006-01-02")
+
+// 	records, err := service.FetchHistoryRecordsBetween(userID, startDate, endDate)
+// 	if err != nil {
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+// 		return
+// 	}
+
+// 	emp, err := repository.GetEmployeeByID(userID)
+// 	if err != nil {
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "employee not found"})
+// 		return
+// 	}
+
+// 	dateMap := make(map[string][]model.AccessLog)
+// 	for _, r := range records {
+// 		day := r.AccessTime.Format("2006-01-02")
+// 		dateMap[day] = append(dateMap[day], r)
+// 	}
+
+// 	var results []AttendanceSummary
+// 	for date, logs := range dateMap {
+// 		var clockIn, clockOut *model.AccessLog
+// 		status := "On Time"
+
+// 		for _, log := range logs {
+// 			if log.Direction == "IN" && (clockIn == nil || log.AccessTime.Before(clockIn.AccessTime)) {
+// 				clockIn = &log
+// 				if log.AccessTime.Hour() > 8 || (log.AccessTime.Hour() == 8 && log.AccessTime.Minute() > 30) {
+// 					status = "Late"
+// 				}
+// 			}
+// 			if log.Direction == "OUT" && (clockOut == nil || log.AccessTime.After(clockOut.AccessTime)) {
+// 				clockOut = &log
+// 			}
+// 		}
+
+// 		if clockIn == nil || clockOut == nil {
+// 			status = "Abnormal"
+// 		}
+
+// 		results = append(results, AttendanceSummary{
+// 			Date:         date,
+// 			Name:         emp.FirstName + " " + emp.LastName,
+// 			ClockInTime:  formatTime(clockIn),
+// 			ClockOutTime: formatTime(clockOut),
+// 			ClockInGate:  getGate(clockIn),
+// 			ClockOutGate: getGate(clockOut),
+// 			Status:       status,
+// 		})
+// 	}
+
+// 	c.JSON(http.StatusOK, results)
+// }
 
 func GetMyPeriodRecords(c *gin.Context) {
 	userID := c.Param("userID")
 	startDate := c.Param("startDate")
 	endDate := c.Param("endDate")
 
-	records, err := service.FetchHistoryRecordsBetween(userID, startDate, endDate)
+	start, err := time.Parse("2006-01-02", startDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid startDate"})
+		return
+	}
+	end, err := time.Parse("2006-01-02", endDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid endDate"})
+		return
+	}
+
+	summaries, err := service.GetAttendanceWithEmployee(userID, start, end)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	c.JSON(http.StatusOK, summaries)
 
-	emp, err := repository.GetEmployeeByID(userID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "employee not found"})
-		return
-	}
-
-	dateMap := make(map[string][]model.AccessLog)
-	for _, r := range records {
-		day := r.AccessTime.Format("2006-01-02")
-		dateMap[day] = append(dateMap[day], r)
-	}
-
-	var results []AttendanceSummary
-	for date, logs := range dateMap {
-		var clockIn, clockOut *model.AccessLog
-		status := "On Time"
-
-		for _, log := range logs {
-			if log.Direction == "IN" && (clockIn == nil || log.AccessTime.Before(clockIn.AccessTime)) {
-				clockIn = &log
-				if log.AccessTime.Hour() > 8 || (log.AccessTime.Hour() == 8 && log.AccessTime.Minute() > 30) {
-					status = "Late"
-				}
-			}
-			if log.Direction == "OUT" && (clockOut == nil || log.AccessTime.After(clockOut.AccessTime)) {
-				clockOut = &log
-			}
-		}
-
-		if clockIn == nil || clockOut == nil {
-			status = "Abnormal"
-		}
-
-		results = append(results, AttendanceSummary{
-			Date:         date,
-			Name:         emp.FirstName + " " + emp.LastName,
-			ClockInTime:  formatTime(clockIn),
-			ClockOutTime: formatTime(clockOut),
-			ClockInGate:  getGate(clockIn),
-			ClockOutGate: getGate(clockOut),
-			Status:       status,
-		})
-	}
-
-	c.JSON(http.StatusOK, results)
 }
 
-func formatTime(log *model.AccessLog) string {
-	if log == nil {
-		return ""
-	}
-	return log.AccessTime.Format("15:04")
-}
+// func GetMyPeriodRecords(c *gin.Context) {
+// 	userID := c.Param("userID")
+// 	startDate := c.Param("startDate")
+// 	endDate := c.Param("endDate")
 
-func getGate(log *model.AccessLog) string {
-	if log == nil {
-		return ""
-	}
-	return log.GateName
-}
+// 	records, err := service.FetchHistoryRecordsBetween(userID, startDate, endDate)
+// 	if err != nil {
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+// 		return
+// 	}
+
+// 	emp, err := repository.GetEmployeeByID(userID)
+// 	if err != nil {
+// 		c.JSON(http.StatusInternalServerError, gin.H{"error": "employee not found"})
+// 		return
+// 	}
+
+// 	dateMap := make(map[string][]model.AccessLog)
+// 	for _, r := range records {
+// 		day := r.AccessTime.Format("2006-01-02")
+// 		dateMap[day] = append(dateMap[day], r)
+// 	}
+
+// 	var results []AttendanceSummary
+// 	for date, logs := range dateMap {
+// 		var clockIn, clockOut *model.AccessLog
+// 		status := "On Time"
+
+// 		for _, log := range logs {
+// 			if log.Direction == "IN" && (clockIn == nil || log.AccessTime.Before(clockIn.AccessTime)) {
+// 				clockIn = &log
+// 				if log.AccessTime.Hour() > 8 || (log.AccessTime.Hour() == 8 && log.AccessTime.Minute() > 30) {
+// 					status = "Late"
+// 				}
+// 			}
+// 			if log.Direction == "OUT" && (clockOut == nil || log.AccessTime.After(clockOut.AccessTime)) {
+// 				clockOut = &log
+// 			}
+// 		}
+
+// 		if clockIn == nil || clockOut == nil {
+// 			status = "Abnormal"
+// 		}
+
+// 		results = append(results, AttendanceSummary{
+// 			Date:         date,
+// 			Name:         emp.FirstName + " " + emp.LastName,
+// 			ClockInTime:  formatTime(clockIn),
+// 			ClockOutTime: formatTime(clockOut),
+// 			ClockInGate:  getGate(clockIn),
+// 			ClockOutGate: getGate(clockOut),
+// 			Status:       status,
+// 		})
+// 	}
+
+// 	c.JSON(http.StatusOK, results)
+// }
+
+// func formatTime(log *model.AccessLog) string {
+// 	if log == nil {
+// 		return ""
+// 	}
+// 	return log.AccessTime.Format("15:04")
+// }
+
+// func getGate(log *model.AccessLog) string {
+// 	if log == nil {
+// 		return ""
+// 	}
+// 	return log.GateName
+// }
 
 func GetThisMonthTeam(c *gin.Context) {
 	department := c.Param("department")

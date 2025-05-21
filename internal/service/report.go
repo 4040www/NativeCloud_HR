@@ -13,6 +13,124 @@ import (
 	"github.com/jung-kurt/gofpdf"
 )
 
+// Get simple employee's attendance summary
+func GetTodayAttendanceSummary(userID string) (*model.AttendanceSummary, error) {
+	logs, err := FetchTodayRecords(userID)
+	if err != nil {
+		return nil, err
+	}
+	if len(logs) == 0 {
+		return nil, nil
+	}
+
+	emp, err := repository.GetEmployeeByID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	var clockIn, clockOut *model.AccessLog
+	status := "On Time"
+
+	for _, log := range logs {
+		if log.Direction == "IN" && (clockIn == nil || log.AccessTime.Before(clockIn.AccessTime)) {
+			clockIn = &log
+			if log.AccessTime.Hour() > 8 || (log.AccessTime.Hour() == 8 && log.AccessTime.Minute() > 30) {
+				status = "Late"
+			}
+		}
+		if log.Direction == "OUT" && (clockOut == nil || log.AccessTime.After(clockOut.AccessTime)) {
+			clockOut = &log
+		}
+	}
+
+	if clockIn == nil || clockOut == nil {
+		status = "Abnormal"
+	}
+
+	if clockIn == nil && clockOut == nil {
+		status = "Day Off"
+	}
+
+	var date string
+	if clockIn != nil {
+		date = clockIn.AccessTime.Format("2006-01-02")
+	} else if clockOut != nil {
+		date = clockOut.AccessTime.Format("2006-01-02")
+	} else {
+		date = time.Now().Format("2006-01-02")
+	}
+
+	summary := &model.AttendanceSummary{
+		Date:         date,
+		Name:         emp.FirstName + " " + emp.LastName,
+		ClockInTime:  formatTime(clockIn),
+		ClockOutTime: formatTime(clockOut),
+		ClockInGate:  getGate(clockIn),
+		ClockOutGate: getGate(clockOut),
+		Status:       status,
+	}
+
+	return summary, nil
+
+}
+
+func GetAttendanceWithEmployee(userID string, start, end time.Time) ([]model.AttendanceSummary, error) {
+	records, err := repository.GetAccessLogsByEmployeeBetween(userID, start, end.Add(24*time.Hour))
+	if err != nil {
+		return nil, err
+	}
+
+	emp, err := repository.GetEmployeeByID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	dateMap := make(map[string][]model.AccessLog)
+	for _, r := range records {
+		day := r.AccessTime.Format("2006-01-02")
+		dateMap[day] = append(dateMap[day], r)
+	}
+
+	var results []model.AttendanceSummary
+	for date, logs := range dateMap {
+		var clockIn, clockOut *model.AccessLog
+		status := "On Time"
+
+		for _, log := range logs {
+			if log.Direction == "IN" && (clockIn == nil || log.AccessTime.Before(clockIn.AccessTime)) {
+				clockIn = &log
+				if log.AccessTime.Hour() > 8 || (log.AccessTime.Hour() == 8 && log.AccessTime.Minute() > 30) {
+					status = "Late"
+				}
+			}
+			if log.Direction == "OUT" && (clockOut == nil || log.AccessTime.After(clockOut.AccessTime)) {
+				clockOut = &log
+			}
+		}
+
+		if clockIn == nil || clockOut == nil {
+			status = "Abnormal"
+		}
+
+		if clockIn == nil && clockOut == nil {
+			status = "Day Off"
+		}
+
+		results = append(results, model.AttendanceSummary{
+			Date:         date,
+			Name:         emp.FirstName + " " + emp.LastName,
+			ClockInTime:  formatTime(clockIn),
+			ClockOutTime: formatTime(clockOut),
+			ClockInGate:  getGate(clockIn),
+			ClockOutGate: getGate(clockOut),
+			Status:       status,
+		})
+	}
+
+	return results, nil
+
+}
+
 func FetchTodayRecords(employeeID string) ([]model.AccessLog, error) {
 	today := time.Now()
 	start := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, today.Location())

@@ -41,3 +41,27 @@ EXPOSE 8080
 
 # 執行應用程式
 CMD ["./native-cloud-hr"]
+# 第一階段: 建置 Go 可執行檔
+# FROM golang:1.23 AS builder
+
+# WORKDIR /app
+
+# COPY go.mod go.sum ./
+# RUN go mod download && go mod tidy
+
+# COPY . .
+
+# # 編譯並清理 mod cache 釋放空間
+# RUN CGO_ENABLED=0 GOOS=linux go build -o native-cloud-hr ./cmd/main.go && \
+#     go clean -modcache
+
+# # 第二階段: 運行環境，改用 alpine 支援 healthcheck 工具
+# FROM alpine:latest
+
+# RUN apk add --no-cache ca-certificates netcat-openbsd
+
+# WORKDIR /root/
+# COPY --from=builder /app/native-cloud-hr ./native-cloud-hr
+
+# EXPOSE 8080
+# CMD ["./native-cloud-hr"]

@@ -30,6 +30,11 @@ services:
     container_name: native-cloud-hr
     ports:
       - "8080:8080"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8080"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     environment:
       - KAFKA_ENABLED=true
       - KAFKA_BROKERS=kafka:9092
@@ -48,3 +53,61 @@ volumes:
 networks:
   kafka_network:
     driver: bridge
+# version: '3.8'
+
+# services:
+#   kafka:
+#     image: bitnami/kafka:3.5
+#     container_name: kafka
+#     ports:
+#       - "9092:9092"
+#     healthcheck:
+#       test: ["CMD", "nc", "-z", "localhost", "9092"]
+#       interval: 10s
+#       timeout: 5s
+#       retries: 10
+#     environment:
+#       - KAFKA_CFG_NODE_ID=1
+#       - KAFKA_CFG_PROCESS_ROLES=controller,broker
+#       - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+#       - KAFKA_CFG_LISTENERS=INTERNAL://:9092,CONTROLLER://:9093
+#       - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+#       - KAFKA_CFG_ADVERTISED_LISTENERS=INTERNAL://kafka:9092
+#       - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+#       - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=INTERNAL
+#     volumes:
+#       - kafka_data:/bitnami/kafka
+#     networks:
+#       - kafka_network
+
+#   app:
+#     build:
+#       context: .
+#       dockerfile: Dockerfile
+#     container_name: native-cloud-hr
+#     ports:
+#       - "8080:8080"
+#     healthcheck:
+#       test: ["CMD", "nc", "-z", "localhost", "8080"]
+#       interval: 10s
+#       timeout: 3s
+#       retries: 5
+#     environment:
+#       - KAFKA_ENABLED=true
+#       - KAFKA_BROKERS=kafka:9092
+#     volumes:
+#       - ./config/.env:/app/config/.env
+#       - ./config/config.yaml:/app/config/config.yaml
+#     depends_on:
+#       kafka:
+#         condition: service_healthy
+#     networks:
+#       - kafka_network
+
+# volumes:
+#   kafka_data:
+
+# networks:
+#   kafka_network:
+#     driver: bridge
+ 
