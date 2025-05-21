@@ -19,28 +19,23 @@ func GetAllEmployees() ([]model.Employee, error) {
 
 	return employees, err
 }
+
+// 原本的 GetEmployeeByID 函數
 func GetEmployeeByID(id string) (*model.Employee, error) {
 	var emp model.Employee
 	err := db.DB.Where("employee_id = ?", id).First(&emp).Error
 	return &emp, err
 }
 
-func GetManagedDepartmentsFromDB(userID string) ([]string, error) {
-	var orgID string
-	err := db.DB.Table("employee").
-		Select("organization_id").
-		Where("employee_id = ?", userID).
-		Scan(&orgID).Error
-	if err != nil {
-		return nil, err
-	}
-
-	var departments []string
-	err = db.DB.Table("organization").
-		Where("organization_id LIKE ?", orgID+"%").
-		Pluck("name", &departments).Error
-	return departments, err
-}
+// For unit test
+// func GetEmployeeByID(db *gorm.DB, id string) (*model.Employee, error) {
+// 	var emp model.Employee
+// 	err := db.Where("employee_id = ?", id).First(&emp).Error
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return &emp, nil
+// }
 
 // Page: Attendance Page
 func GetDepartmentsByManager(userID string) ([]string, error) {
