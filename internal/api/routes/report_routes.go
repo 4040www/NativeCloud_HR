@@ -9,7 +9,7 @@ import (
 
 func RegisterReportRoutes(router *gin.RouterGroup) {
 	{
-		router.GET("/myRecords/:userID", handler.GetMyTodayRecords)                                                   // API #2
+		router.GET("/myRecords/:userID", handler.GetMyTodayRecords(db.GetDB()))                                       // API #2
 		router.GET("/historyRecords/:userID", handler.GetMyHistoryRecords(db.GetDB()))                                // API #3
 		router.GET("/historyRecords/:userID/:startDate/:endDate", handler.GetMyPeriodRecords(db.GetDB()))             // API #4
 		router.GET("/thisMonth/:department/:userID", handler.GetThisMonthTeam(db.GetDB()))                            // API #5 //變成可以填月和週

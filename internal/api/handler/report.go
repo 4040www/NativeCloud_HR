@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/4040www/NativeCloud_HR/internal/db"
 	"github.com/4040www/NativeCloud_HR/internal/service"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -21,21 +20,21 @@ type AttendanceSummary struct {
 	Status       string `json:"status"` // "On Time" / "Late" / "Abnormal"
 }
 
-func GetMyTodayRecords(c *gin.Context) {
-	DB := db.GetDB() // Get the db for unit test
-	userID := c.Param("userID")
+func GetMyTodayRecords(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := c.Param("userID")
 
-	summary, err := service.GetTodayAttendanceSummary(DB, userID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		summary, err := service.GetTodayAttendanceSummary(db, userID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if summary == nil {
+			c.JSON(http.StatusOK, gin.H{"data": nil, "message": "No access records for today"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"data": summary})
 	}
-	if summary == nil {
-		c.JSON(http.StatusOK, gin.H{"message": "no access records today"})
-		return
-	}
-	c.JSON(http.StatusOK, summary)
-
 }
 
 // func GetMyTodayRecords(c *gin.Context) {
