@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"errors"
 	"time"
 
 	"github.com/4040www/NativeCloud_HR/internal/db"
@@ -8,9 +9,9 @@ import (
 	"gorm.io/gorm"
 )
 
-func GetAccessLogsByEmployeeBetween(employeeID string, start, end time.Time) ([]model.AccessLog, error) {
+func GetAccessLogsByEmployeeBetween(db *gorm.DB, employeeID string, start, end time.Time) ([]model.AccessLog, error) {
 	var logs []model.AccessLog
-	err := db.DB.Table("access_log").Where("employee_id = ? AND access_time BETWEEN ? AND ?", employeeID, start, end).Order("access_time asc").Find(&logs).Error
+	err := db.Table("access_log").Where("employee_id = ? AND access_time BETWEEN ? AND ?", employeeID, start, end).Order("access_time asc").Find(&logs).Error
 	return logs, err
 }
 
@@ -31,9 +32,11 @@ func GetAllEmployees() ([]model.Employee, error) {
 // For unit test
 func GetEmployeeByID(db *gorm.DB, id string) (*model.Employee, error) {
 	var emp model.Employee
-	err := db.Where("employee_id = ?", id).First(&emp).Error
-	if err != nil {
-		return nil, err
+	if err := db.Where("employee_id = ?", id).First(&emp).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil // 查無資料但不是錯誤
+		}
+		return nil, err // 真正錯誤
 	}
 	return &emp, nil
 }

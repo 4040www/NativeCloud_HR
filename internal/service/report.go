@@ -8,16 +8,15 @@ import (
 	"sort"
 	"time"
 
-	"github.com/4040www/NativeCloud_HR/internal/db"
 	"github.com/4040www/NativeCloud_HR/internal/model"
 	"github.com/4040www/NativeCloud_HR/internal/repository"
 	"github.com/jung-kurt/gofpdf"
+	"gorm.io/gorm"
 )
 
 // Get simple employee's attendance summary
-func GetTodayAttendanceSummary(userID string) (*model.AttendanceSummary, error) {
-	DB := db.GetDB() // Get the DB instance for unit tests
-	logs, err := FetchTodayRecords(userID)
+func GetTodayAttendanceSummary(db *gorm.DB, userID string) (*model.AttendanceSummary, error) {
+	logs, err := FetchTodayRecords(db, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -25,7 +24,7 @@ func GetTodayAttendanceSummary(userID string) (*model.AttendanceSummary, error) 
 		return nil, nil
 	}
 
-	emp, err := repository.GetEmployeeByID(DB, userID) // Modified to use the DB instance for unit tests
+	emp, err := repository.GetEmployeeByID(db, userID) // Modified to use the DB instance for unit tests
 	if err != nil {
 		return nil, err
 	}
@@ -76,14 +75,13 @@ func GetTodayAttendanceSummary(userID string) (*model.AttendanceSummary, error) 
 
 }
 
-func GetAttendanceWithEmployee(userID string, start, end time.Time) ([]model.AttendanceSummary, error) {
-	DB := db.GetDB() // Get the DB instance for unit tests
-	records, err := repository.GetAccessLogsByEmployeeBetween(userID, start, end.Add(24*time.Hour))
+func GetAttendanceWithEmployee(db *gorm.DB, userID string, start, end time.Time) ([]model.AttendanceSummary, error) {
+	records, err := repository.GetAccessLogsByEmployeeBetween(db, userID, start, end.Add(24*time.Hour))
 	if err != nil {
 		return nil, err
 	}
 
-	emp, err := repository.GetEmployeeByID(DB, userID) // Modified to use the DB instance for unit tests
+	emp, err := repository.GetEmployeeByID(db, userID) // Modified to use the DB instance for unit tests
 	if err != nil {
 		return nil, err
 	}
@@ -134,37 +132,37 @@ func GetAttendanceWithEmployee(userID string, start, end time.Time) ([]model.Att
 
 }
 
-func FetchTodayRecords(employeeID string) ([]model.AccessLog, error) {
+func FetchTodayRecords(db *gorm.DB, employeeID string) ([]model.AccessLog, error) {
 	today := time.Now()
 	start := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, today.Location())
 	end := start.Add(24 * time.Hour)
-	return repository.GetAccessLogsByEmployeeBetween(employeeID, start, end)
+	return repository.GetAccessLogsByEmployeeBetween(db, employeeID, start, end)
 }
 
-func FetchHistoryRecords(employeeID string) ([]model.AccessLog, error) {
+func FetchHistoryRecords(db *gorm.DB, employeeID string) ([]model.AccessLog, error) {
 	start := time.Now().AddDate(0, -1, 0)
 	end := time.Now()
-	return repository.GetAccessLogsByEmployeeBetween(employeeID, start, end)
+	return repository.GetAccessLogsByEmployeeBetween(db, employeeID, start, end)
 }
 
-func FetchHistoryRecordsBetween(employeeID, startDate, endDate string) ([]model.AccessLog, error) {
+func FetchHistoryRecordsBetween(db *gorm.DB, employeeID, startDate, endDate string) ([]model.AccessLog, error) {
 	start, _ := time.Parse("2006-01-02", startDate)
 	end, _ := time.Parse("2006-01-02", endDate)
-	return repository.GetAccessLogsByEmployeeBetween(employeeID, start, end.Add(24*time.Hour))
+	return repository.GetAccessLogsByEmployeeBetween(db, employeeID, start, end.Add(24*time.Hour))
 }
 
-func FetchMonthComparisonReport(departmentID, month string) (map[string]interface{}, map[string]interface{}, error) {
-	current, err := FetchMonthlyTeamReport(departmentID, month)
+func FetchMonthComparisonReport(db *gorm.DB, departmentID, month string) (map[string]interface{}, map[string]interface{}, error) {
+	current, err := FetchMonthlyTeamReport(db, departmentID, month)
 	if err != nil {
 		return nil, nil, err
 	}
 	timeObj, _ := time.Parse("2006-01", month)
 	prevMonth := timeObj.AddDate(0, -1, 0).Format("2006-01")
-	prev, err := FetchMonthlyTeamReport(departmentID, prevMonth)
+	prev, err := FetchMonthlyTeamReport(db, departmentID, prevMonth)
 	return current, prev, err
 }
 
-func FetchMonthlyTeamReport(departmentID, month string) (map[string]interface{}, error) {
+func FetchMonthlyTeamReport(db *gorm.DB, departmentID, month string) (map[string]interface{}, error) {
 	employees, err := repository.GetAllEmployees()
 	if err != nil {
 		return nil, err
@@ -184,7 +182,7 @@ func FetchMonthlyTeamReport(departmentID, month string) (map[string]interface{},
 	for _, e := range employees {
 		if e.OrganizationID == departmentID {
 			fmt.Printf("👤 %s %s (%s)\n", e.FirstName, e.LastName, e.EmployeeID)
-			logs, _ := repository.GetAccessLogsByEmployeeBetween(e.EmployeeID, start, end)
+			logs, _ := repository.GetAccessLogsByEmployeeBetween(db, e.EmployeeID, start, end)
 			fmt.Printf("   ⏰ %d access logs\n", len(logs))
 			workHours, _ := calculateDailyWorkHours(logs)
 			fmt.Printf("   📊 Work hours: %.2f\n", workHours)
@@ -208,11 +206,11 @@ func FetchMonthlyTeamReport(departmentID, month string) (map[string]interface{},
 	}, nil
 }
 
-func FetchWeeklyTeamReport(departmentID, startDate, endDate string) (map[string]interface{}, error) {
-	return FetchCustomPeriodTeamReport(departmentID, startDate, endDate)
+func FetchWeeklyTeamReport(db *gorm.DB, departmentID, startDate, endDate string) (map[string]interface{}, error) {
+	return FetchCustomPeriodTeamReport(db, departmentID, startDate, endDate)
 }
 
-func FetchCustomPeriodTeamReport(departmentID, startDate, endDate string) (map[string]interface{}, error) {
+func FetchCustomPeriodTeamReport(db *gorm.DB, departmentID, startDate, endDate string) (map[string]interface{}, error) {
 	fmt.Println("⚙️ FetchCustomPeriodTeamReport called with:", departmentID, startDate, endDate)
 
 	employees, err := repository.GetAllEmployees()
@@ -231,7 +229,7 @@ func FetchCustomPeriodTeamReport(departmentID, startDate, endDate string) (map[s
 		// fmt.Printf("👤 %s %s (%s)\n", e.FirstName, e.LastName, e.OrganizationID, departmentID)
 		if e.OrganizationID == departmentID {
 			fmt.Printf("⏰ %s %s (%s)\n", e.FirstName, e.LastName, e.EmployeeID)
-			logs, _ := repository.GetAccessLogsByEmployeeBetween(e.EmployeeID, start, end.Add(24*time.Hour))
+			logs, _ := repository.GetAccessLogsByEmployeeBetween(db, e.EmployeeID, start, end.Add(24*time.Hour))
 			workHours, _ := calculateDailyWorkHours(logs)
 
 			fmt.Printf("👤 %s logs: %d, workHours: %.2f\n", e.EmployeeID, len(logs), workHours)
@@ -255,7 +253,7 @@ func FetchCustomPeriodTeamReport(departmentID, startDate, endDate string) (map[s
 	}, nil
 }
 
-func GenerateAlertList(startDate, endDate string) ([]map[string]interface{}, error) {
+func GenerateAlertList(db *gorm.DB, startDate, endDate string) ([]map[string]interface{}, error) {
 	employees, err := repository.GetAllEmployees()
 	if err != nil {
 		return nil, err
@@ -266,7 +264,7 @@ func GenerateAlertList(startDate, endDate string) ([]map[string]interface{}, err
 	var alerts []map[string]interface{}
 
 	for _, e := range employees {
-		logs, _ := repository.GetAccessLogsByEmployeeBetween(e.EmployeeID, start, end.Add(24*time.Hour))
+		logs, _ := repository.GetAccessLogsByEmployeeBetween(db, e.EmployeeID, start, end.Add(24*time.Hour))
 
 		// 將紀錄按日期分類
 		dayMap := make(map[string][]model.AccessLog)
@@ -359,7 +357,7 @@ func GetManagedDepartmentsFromDB(userID string) ([]string, error) {
 	return repository.GetDepartmentsByManager(userID)
 }
 
-func GetAttendanceSummaryForDepartments(department, startDate, endDate string) ([]map[string]interface{}, error) {
+func GetAttendanceSummaryForDepartments(db *gorm.DB, department, startDate, endDate string) ([]map[string]interface{}, error) {
 	employees, err := repository.GetEmployeesByDepartment(department)
 	if err != nil {
 		return nil, err
@@ -369,7 +367,7 @@ func GetAttendanceSummaryForDepartments(department, startDate, endDate string) (
 
 	var result []map[string]interface{}
 	for _, emp := range employees {
-		logs, _ := repository.GetAccessLogsByEmployeeBetween(emp.EmployeeID, start, end.Add(24*time.Hour))
+		logs, _ := repository.GetAccessLogsByEmployeeBetween(db, emp.EmployeeID, start, end.Add(24*time.Hour))
 		dateMap := make(map[string][]model.AccessLog)
 		for _, r := range logs {
 			day := r.AccessTime.Format("2006-01-02")
@@ -423,8 +421,8 @@ Status要有：
 5. Abnormal（沒有打卡紀錄）--> 一天有打一次卡（只有一次進或是只有一次出）
 */
 
-func GenerateAttendanceSummaryCSV(dept, start, end string) ([]byte, error) {
-	summary, err := GetAttendanceSummaryForDepartments(dept, start, end)
+func GenerateAttendanceSummaryCSV(db *gorm.DB, dept, start, end string) ([]byte, error) {
+	summary, err := GetAttendanceSummaryForDepartments(db, dept, start, end)
 	if err != nil {
 		return nil, err
 	}
@@ -455,8 +453,8 @@ func GenerateAttendanceSummaryCSV(dept, start, end string) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-func GenerateAttendanceSummaryPDF(dept, start, end string) ([]byte, error) {
-	summary, err := GetAttendanceSummaryForDepartments(dept, start, end)
+func GenerateAttendanceSummaryPDF(db *gorm.DB, dept, start, end string) ([]byte, error) {
+	summary, err := GetAttendanceSummaryForDepartments(db, dept, start, end)
 	if err != nil {
 		return nil, err
 	}

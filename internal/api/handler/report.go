@@ -5,8 +5,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/4040www/NativeCloud_HR/internal/db"
 	"github.com/4040www/NativeCloud_HR/internal/service"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type AttendanceSummary struct {
@@ -20,9 +22,10 @@ type AttendanceSummary struct {
 }
 
 func GetMyTodayRecords(c *gin.Context) {
+	DB := db.GetDB() // Get the db for unit test
 	userID := c.Param("userID")
 
-	summary, err := service.GetTodayAttendanceSummary(userID)
+	summary, err := service.GetTodayAttendanceSummary(DB, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -86,18 +89,19 @@ func GetMyTodayRecords(c *gin.Context) {
 // 	c.JSON(http.StatusOK, resp)
 // }
 
-func GetMyHistoryRecords(c *gin.Context) {
-	userID := c.Param("userID")
-	end := time.Now()
-	start := end.AddDate(0, 0, -30)
+func GetMyHistoryRecords(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := c.Param("userID")
+		end := time.Now()
+		start := end.AddDate(0, 0, -30)
 
-	summaries, err := service.GetAttendanceWithEmployee(userID, start, end)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		summaries, err := service.GetAttendanceWithEmployee(db, userID, start, end)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, summaries)
 	}
-	c.JSON(http.StatusOK, summaries)
-
 }
 
 // func GetMyHistoryRecords(c *gin.Context) {
@@ -162,29 +166,30 @@ func GetMyHistoryRecords(c *gin.Context) {
 // 	c.JSON(http.StatusOK, results)
 // }
 
-func GetMyPeriodRecords(c *gin.Context) {
-	userID := c.Param("userID")
-	startDate := c.Param("startDate")
-	endDate := c.Param("endDate")
+func GetMyPeriodRecords(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := c.Param("userID")
+		startDate := c.Param("startDate")
+		endDate := c.Param("endDate")
 
-	start, err := time.Parse("2006-01-02", startDate)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid startDate"})
-		return
-	}
-	end, err := time.Parse("2006-01-02", endDate)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid endDate"})
-		return
-	}
+		start, err := time.Parse("2006-01-02", startDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid startDate"})
+			return
+		}
+		end, err := time.Parse("2006-01-02", endDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid endDate"})
+			return
+		}
 
-	summaries, err := service.GetAttendanceWithEmployee(userID, start, end)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		summaries, err := service.GetAttendanceWithEmployee(db, userID, start, end)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, summaries)
 	}
-	c.JSON(http.StatusOK, summaries)
-
 }
 
 // func GetMyPeriodRecords(c *gin.Context) {
@@ -259,56 +264,67 @@ func GetMyPeriodRecords(c *gin.Context) {
 // 	return log.GateName
 // }
 
-func GetThisMonthTeam(c *gin.Context) {
-	department := c.Param("department")
-	month := c.DefaultQuery("month", time.Now().Format("2006-01"))
-	current, prev, err := service.FetchMonthComparisonReport(department, month)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+func GetThisMonthTeam(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		department := c.Param("department")
+		month := c.DefaultQuery("month", time.Now().Format("2006-01"))
+
+		current, prev, err := service.FetchMonthComparisonReport(db, department, month)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, []interface{}{current, prev})
 	}
-	c.JSON(http.StatusOK, []interface{}{current, prev})
 }
 
-func GetThisWeekTeam(c *gin.Context) {
-	department := c.Param("department")
-	now := time.Now()
-	start := now.AddDate(0, 0, -int(now.Weekday())+1)
-	end := start.AddDate(0, 0, 6)
-	lastStart := start.AddDate(0, 0, -7)
-	lastEnd := end.AddDate(0, 0, -7)
+func GetThisWeekTeam(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		department := c.Param("department")
+		now := time.Now()
 
-	current, err1 := service.FetchWeeklyTeamReport(department, start.Format("2006-01-02"), end.Format("2006-01-02"))
-	prev, err2 := service.FetchWeeklyTeamReport(department, lastStart.Format("2006-01-02"), lastEnd.Format("2006-01-02"))
-	if err1 != nil || err2 != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load report"})
-		return
+		start := now.AddDate(0, 0, -int(now.Weekday())+1) // 本週一
+		end := start.AddDate(0, 0, 6)                     // 本週日
+		lastStart := start.AddDate(0, 0, -7)              // 上週一
+		lastEnd := end.AddDate(0, 0, -7)                  // 上週日
+
+		current, err1 := service.FetchWeeklyTeamReport(db, department, start.Format("2006-01-02"), end.Format("2006-01-02"))
+		prev, err2 := service.FetchWeeklyTeamReport(db, department, lastStart.Format("2006-01-02"), lastEnd.Format("2006-01-02"))
+		if err1 != nil || err2 != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load report"})
+			return
+		}
+		c.JSON(http.StatusOK, []interface{}{current, prev})
 	}
-	c.JSON(http.StatusOK, []interface{}{current, prev})
 }
 
-func GetCustomPeriodTeam(c *gin.Context) {
-	department := c.Param("department")
-	startDate := c.Param("startDate")
-	endDate := c.Param("endDate")
-	result, err := service.FetchCustomPeriodTeamReport(department, startDate, endDate)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, result)
+func GetCustomPeriodTeam(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		department := c.Param("department")
+		startDate := c.Param("startDate")
+		endDate := c.Param("endDate")
 
+		result, err := service.FetchCustomPeriodTeamReport(db, department, startDate, endDate)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, result)
+	}
 }
 
-func GetAlertList(c *gin.Context) {
-	start := c.Param("startDate")
-	end := c.Param("endDate")
-	list, err := service.GenerateAlertList(start, end)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+func GetAlertList(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := c.Param("startDate")
+		end := c.Param("endDate")
+
+		list, err := service.GenerateAlertList(db, start, end)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, list)
 	}
-	c.JSON(http.StatusOK, list)
 }
 
 func GetInChargeDepartments(c *gin.Context) {
@@ -317,30 +333,38 @@ func GetInChargeDepartments(c *gin.Context) {
 	c.JSON(http.StatusOK, depts)
 }
 
-func ExportSummaryCSV(c *gin.Context) {
-	department := c.Param("department")
-	start := c.Param("startDate")
-	end := c.Param("endDate")
-	data, err := service.GenerateAttendanceSummaryCSV(department, start, end)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+func ExportSummaryCSV(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		department := c.Param("department")
+		start := c.Param("startDate")
+		end := c.Param("endDate")
+
+		data, err := service.GenerateAttendanceSummaryCSV(db, department, start, end)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.Header("Content-Disposition", "attachment; filename=summary.csv")
+		c.Data(http.StatusOK, "text/csv", data)
 	}
-	c.Header("Content-Disposition", "attachment; filename=summary.csv")
-	c.Data(http.StatusOK, "text/csv", data)
 }
 
-func ExportSummaryPDF(c *gin.Context) {
-	department := c.Param("department")
-	start := c.Param("startDate")
-	end := c.Param("endDate")
-	data, err := service.GenerateAttendanceSummaryPDF(department, start, end)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+func ExportSummaryPDF(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		department := c.Param("department")
+		start := c.Param("startDate")
+		end := c.Param("endDate")
+
+		data, err := service.GenerateAttendanceSummaryPDF(db, department, start, end)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.Header("Content-Disposition", "attachment; filename=summary.pdf")
+		c.Data(http.StatusOK, "application/pdf", data)
 	}
-	c.Header("Content-Disposition", "attachment; filename=summary.pdf")
-	c.Data(http.StatusOK, "application/pdf", data)
 }
 
 // Page: Attendence Log
@@ -354,40 +378,49 @@ func GetMyDepartments(c *gin.Context) {
 	c.JSON(http.StatusOK, departments)
 }
 
-func FilterAttendanceSummary(c *gin.Context) {
-	department := c.Query("department")
-	fromDate := c.Query("fromDate")
-	toDate := c.Query("toDate")
-	result, err := service.GetAttendanceSummaryForDepartments(department, fromDate, toDate)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+func FilterAttendanceSummary(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		department := c.Query("department")
+		fromDate := c.Query("fromDate")
+		toDate := c.Query("toDate")
+
+		result, err := service.GetAttendanceSummaryForDepartments(db, department, fromDate, toDate)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, result)
 	}
-	c.JSON(http.StatusOK, result)
 }
 
-func ExportAttendanceSummaryCSV(c *gin.Context) {
-	department := c.Query("department")
-	fromDate := c.Query("fromDate")
-	toDate := c.Query("toDate")
-	csvData, err := service.GenerateAttendanceSummaryCSV(department, fromDate, toDate)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+func ExportAttendanceSummaryCSV(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		department := c.Query("department")
+		fromDate := c.Query("fromDate")
+		toDate := c.Query("toDate")
+
+		csvData, err := service.GenerateAttendanceSummaryCSV(db, department, fromDate, toDate)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.Header("Content-Disposition", "attachment; filename=summary.csv")
+		c.Data(http.StatusOK, "text/csv", csvData)
 	}
-	c.Header("Content-Disposition", "attachment; filename=summary.csv")
-	c.Data(http.StatusOK, "text/csv", csvData)
 }
 
-func ExportAttendanceSummaryPDF(c *gin.Context) {
-	department := c.Query("department")
-	fromDate := c.Query("fromDate")
-	toDate := c.Query("toDate")
-	pdfData, err := service.GenerateAttendanceSummaryPDF(department, fromDate, toDate)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+func ExportAttendanceSummaryPDF(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		department := c.Query("department")
+		fromDate := c.Query("fromDate")
+		toDate := c.Query("toDate")
+
+		pdfData, err := service.GenerateAttendanceSummaryPDF(db, department, fromDate, toDate)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.Header("Content-Disposition", "attachment; filename=summary.pdf")
+		c.Data(http.StatusOK, "application/pdf", pdfData)
 	}
-	c.Header("Content-Disposition", "attachment; filename=summary.pdf")
-	c.Data(http.StatusOK, "application/pdf", pdfData)
 }

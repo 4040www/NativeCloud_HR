@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 
@@ -35,47 +36,53 @@ func TestGetEmployeeByID(t *testing.T) {
 		LastName:   "Doe",
 	}
 
-	// 模擬 GORM 查詢語法
-	mock.ExpectQuery(`SELECT .* FROM "employee" WHERE employee_id = \$1.*`).
-		WithArgs(userID, 1). // GORM 的 LIMIT 1 是參數
-		WillReturnRows(sqlmock.NewRows([]string{"employee_id", "first_name", "last_name"}).
-			AddRow(expected.EmployeeID, expected.FirstName, expected.LastName))
+	t.Run("valid employee", func(t *testing.T) {
+		// 正常查詢
+		mock.ExpectQuery(`SELECT .* FROM "employee" WHERE employee_id = \$1.*`).
+			WithArgs(userID, 1).
+			WillReturnRows(sqlmock.NewRows([]string{"employee_id", "first_name", "last_name"}).
+				AddRow(expected.EmployeeID, expected.FirstName, expected.LastName))
 
-	tests := []struct {
-		name string
-		args struct {
-			db *gorm.DB
-			id string
+		got, err := GetEmployeeByID(db, userID)
+		if err != nil {
+			t.Errorf("GetEmployeeByID() unexpected error: %v", err)
 		}
-		want    *model.Employee
-		wantErr bool
-	}{
-		{
-			name: "valid employee",
-			args: struct {
-				db *gorm.DB
-				id string
-			}{
-				db: db,
-				id: userID,
-			},
-			want:    expected,
-			wantErr: false,
-		},
-	}
+		if !reflect.DeepEqual(got, expected) {
+			t.Errorf("GetEmployeeByID() = %v, want %v", got, expected)
+		}
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := GetEmployeeByID(tt.args.db, tt.args.id)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("GetEmployeeByID() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetEmployeeByID() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+	t.Run("employee not found", func(t *testing.T) {
+		nonExistentID := "emp999"
+		// 查無此人
+		mock.ExpectQuery(`SELECT .* FROM "employee" WHERE employee_id = \$1.*`).
+			WithArgs("emp999", 1).
+			WillReturnRows(sqlmock.NewRows([]string{"employee_id", "first_name", "last_name"})) // 空行
+
+		got, err := GetEmployeeByID(db, nonExistentID)
+		if err != nil {
+			t.Errorf("GetEmployeeByID() unexpected error: %v", err)
+		}
+		if got != nil {
+			t.Errorf("GetEmployeeByID() = %v, want nil", got)
+		}
+	})
+
+	t.Run("database error", func(t *testing.T) {
+		errorID := "emp500"
+		// 資料庫錯誤
+		mock.ExpectQuery(`SELECT .* FROM "employee" WHERE employee_id = \$1.*`).
+			WithArgs("emp500", 1).
+			WillReturnError(errors.New("db connection failed"))
+
+		got, err := GetEmployeeByID(db, errorID)
+		if err == nil {
+			t.Errorf("GetEmployeeByID() expected error, got nil")
+		}
+		if got != nil {
+			t.Errorf("GetEmployeeByID() = %v, want nil", got)
+		}
+	})
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("unfulfilled expectations: %v", err)

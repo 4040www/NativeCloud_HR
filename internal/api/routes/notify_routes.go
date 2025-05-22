@@ -2,15 +2,16 @@ package routes
 
 import (
 	handlers "github.com/4040www/NativeCloud_HR/internal/api/handler"
+	"github.com/4040www/NativeCloud_HR/internal/db"
 	"github.com/gin-gonic/gin"
 )
 
 func RegisterNotifyRoutes(router *gin.RouterGroup) {
 	// notify := router.Group("/")
 	{
-		router.GET("/warning", handlers.OvertimeOrLateCheck)
-		router.POST("/late", handlers.NotifyManagerTooManyLate)
-		router.POST("/overtime", handlers.NotifyHRExceedOvertime)
+		router.GET("/warning", handlers.OvertimeOrLateCheck(db.GetDB()))
+		router.POST("/late", handlers.NotifyManagerTooManyLate(db.GetDB()))
+		router.POST("/overtime", handlers.NotifyHRExceedOvertime(db.GetDB()))
 	}
 }
 

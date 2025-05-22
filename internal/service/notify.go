@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/4040www/NativeCloud_HR/internal/repository"
+	"gorm.io/gorm"
 )
 
 type ProblemEmployee struct {
@@ -12,7 +13,7 @@ type ProblemEmployee struct {
 	Problems   []string `json:"problems"`
 }
 
-func FindProblematicEmployees() ([]ProblemEmployee, error) {
+func FindProblematicEmployees(db *gorm.DB) ([]ProblemEmployee, error) {
 	employeeIDs, err := repository.GetAllEmployeeIDs()
 	if err != nil {
 		return nil, err
@@ -25,7 +26,7 @@ func FindProblematicEmployees() ([]ProblemEmployee, error) {
 	monthEnd := monthStart.AddDate(0, 1, 0)
 
 	for _, eid := range employeeIDs {
-		logs, err := repository.GetAccessLogsByEmployeeBetween(eid, monthStart, monthEnd)
+		logs, err := repository.GetAccessLogsByEmployeeBetween(db, eid, monthStart, monthEnd)
 		if err != nil {
 			continue
 		}
@@ -85,12 +86,12 @@ func FindProblematicEmployees() ([]ProblemEmployee, error) {
 	}
 	return result, nil
 }
-func NotifyManagerLate(employeeID string) string {
+func NotifyManagerLate(db *gorm.DB, employeeID string) string {
 	loc := time.Now().Location()
 	monthStart := time.Date(time.Now().Year(), time.Now().Month(), 1, 0, 0, 0, 0, loc)
 	monthEnd := monthStart.AddDate(0, 1, 0)
 
-	logs, err := repository.GetAccessLogsByEmployeeBetween(employeeID, monthStart, monthEnd)
+	logs, err := repository.GetAccessLogsByEmployeeBetween(db, employeeID, monthStart, monthEnd)
 	if err != nil {
 		return "查詢失敗，請稍後再試。"
 	}
@@ -125,12 +126,12 @@ func NotifyManagerLate(employeeID string) string {
 	return fmt.Sprintf("員工 %s 本月遲到次數為 %d 次，尚無需警告。", employeeID, lateCount)
 }
 
-func NotifyHROvertime(employeeID string) string {
+func NotifyHROvertime(db *gorm.DB, employeeID string) string {
 	loc := time.Now().Location()
 	monthStart := time.Date(time.Now().Year(), time.Now().Month(), 1, 0, 0, 0, 0, loc)
 	monthEnd := monthStart.AddDate(0, 1, 0)
 
-	logs, err := repository.GetAccessLogsByEmployeeBetween(employeeID, monthStart, monthEnd)
+	logs, err := repository.GetAccessLogsByEmployeeBetween(db, employeeID, monthStart, monthEnd)
 	if err != nil {
 		return "查詢失敗，請稍後再試。"
 	}
