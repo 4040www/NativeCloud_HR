@@ -530,13 +530,9 @@ func TestFetchCustomPeriodTeamReport(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{
 			"access_id", "employee_id", "direction", "access_time", "gate_type", "gate_name", "access_result",
 		}).
-			AddRow("1", "E001", "in", time.Date(2025, 5, 1, 9, 0, 0, 0, time.UTC), "", "", "").
-			AddRow("2", "E001", "out", time.Date(2025, 5, 1, 19, 0, 0, 0, time.UTC), "", "", "")) // 10 小時，OT 2
+			AddRow("1", "E001", "IN", time.Date(2025, 5, 1, 9, 0, 0, 0, time.UTC), "", "", "").
+			AddRow("2", "E001", "OUT", time.Date(2025, 5, 1, 19, 0, 0, 0, time.UTC), "", "", "")) // 10 小時，OT 2
 
-	// ❌ 移除這段，因為 E002 是 D002，不會被查到 access_log，所以不需要 mock
-	// mock.ExpectQuery(`SELECT \* FROM "access_log" ...`)
-
-	// 呼叫被測 function
 	result, err := FetchCustomPeriodTeamReport(db, deptID, startDate, endDate)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

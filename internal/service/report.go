@@ -4,7 +4,6 @@ package service
 import (
 	"bytes"
 	"encoding/csv"
-	"fmt"
 	"sort"
 	"time"
 
@@ -173,7 +172,7 @@ func FetchMonthlyTeamReport(db *gorm.DB, departmentID, month string) (map[string
 	start := time.Date(monthTime.Year(), monthTime.Month(), 1, 0, 0, 0, 0, loc)
 	end := start.AddDate(0, 1, 0)
 
-	fmt.Printf("🔍 Report period: %s ~ %s\n", start, end)
+	// fmt.Printf("🔍 Report period: %s ~ %s\n", start, end)
 
 	totalHours, otHours := 0.0, 0.0
 	overtimeCount := 0
@@ -181,11 +180,11 @@ func FetchMonthlyTeamReport(db *gorm.DB, departmentID, month string) (map[string
 
 	for _, e := range employees {
 		if e.OrganizationID == departmentID {
-			fmt.Printf("👤 %s %s (%s)\n", e.FirstName, e.LastName, e.EmployeeID)
+			// fmt.Printf("👤 %s %s (%s)\n", e.FirstName, e.LastName, e.EmployeeID)
 			logs, _ := repository.GetAccessLogsByEmployeeBetween(db, e.EmployeeID, start, end)
-			fmt.Printf("   ⏰ %d access logs\n", len(logs))
+			// fmt.Printf("   ⏰ %d access logs\n", len(logs))
 			workHours, _ := calculateDailyWorkHours(logs)
-			fmt.Printf("   📊 Work hours: %.2f\n", workHours)
+			// fmt.Printf("   📊 Work hours: %.2f\n", workHours)
 
 			totalHours += workHours
 			if workHours > 8 {
@@ -196,7 +195,7 @@ func FetchMonthlyTeamReport(db *gorm.DB, departmentID, month string) (map[string
 		}
 	}
 
-	fmt.Println("✅ Done:", totalHours, otHours, overtimeCount, len(uniqueEmployees))
+	// fmt.Println("✅ Done:", totalHours, otHours, overtimeCount, len(uniqueEmployees))
 
 	return map[string]interface{}{
 		"TotalWorkHours": totalHours,
@@ -211,7 +210,7 @@ func FetchWeeklyTeamReport(db *gorm.DB, departmentID, startDate, endDate string)
 }
 
 func FetchCustomPeriodTeamReport(db *gorm.DB, departmentID, startDate, endDate string) (map[string]interface{}, error) {
-	fmt.Println("⚙️ FetchCustomPeriodTeamReport called with:", departmentID, startDate, endDate)
+	// fmt.Println("⚙️ FetchCustomPeriodTeamReport called with:", departmentID, startDate, endDate)
 
 	employees, err := repository.GetAllEmployees(db)
 	if err != nil {
@@ -220,7 +219,7 @@ func FetchCustomPeriodTeamReport(db *gorm.DB, departmentID, startDate, endDate s
 	// fmt.Println("Employee list: ", employees)
 	start, _ := time.Parse("2006-01-02", startDate)
 	end, _ := time.Parse("2006-01-02", endDate)
-
+	// fmt.Println("time: ", start, end)
 	totalHours, otHours := 0.0, 0.0
 	overtimeCount := 0
 	uniqueEmployees := make(map[string]bool)
@@ -228,11 +227,12 @@ func FetchCustomPeriodTeamReport(db *gorm.DB, departmentID, startDate, endDate s
 	for _, e := range employees {
 		// fmt.Printf("👤 %s %s (%s)\n", e.FirstName, e.LastName, e.OrganizationID, departmentID)
 		if e.OrganizationID == departmentID {
-			fmt.Printf("⏰ %s %s (%s)\n", e.FirstName, e.LastName, e.EmployeeID)
+			// fmt.Printf("⏰ %s %s (%s)\n", e.FirstName, e.LastName, e.EmployeeID)
 			logs, _ := repository.GetAccessLogsByEmployeeBetween(db, e.EmployeeID, start, end.Add(24*time.Hour))
+			// fmt.Println("logs", logs)
 			workHours, _ := calculateDailyWorkHours(logs)
 
-			fmt.Printf("👤 %s logs: %d, workHours: %.2f\n", e.EmployeeID, len(logs), workHours)
+			// fmt.Printf("👤 %s logs: %d, workHours: %.2f\n", e.EmployeeID, len(logs), workHours)
 
 			totalHours += workHours
 			if workHours > 8 {
@@ -243,7 +243,7 @@ func FetchCustomPeriodTeamReport(db *gorm.DB, departmentID, startDate, endDate s
 		}
 	}
 
-	fmt.Println("✅ Done:", totalHours, otHours, overtimeCount, len(uniqueEmployees))
+	// fmt.Println("✅ Done:", totalHours, otHours, overtimeCount, len(uniqueEmployees))
 
 	return map[string]interface{}{
 		"TotalWorkHours": totalHours,
@@ -265,24 +265,24 @@ func GenerateAlertList(db *gorm.DB, startDate, endDate string) ([]map[string]int
 
 	for _, e := range employees {
 		logs, _ := repository.GetAccessLogsByEmployeeBetween(db, e.EmployeeID, start, end.Add(24*time.Hour))
-		fmt.Println("Employee:", e.EmployeeID)
-		fmt.Println("Logs:", logs)
+		// fmt.Println("Employee:", e.EmployeeID)
+		// fmt.Println("Logs:", logs)
 		// 將紀錄按日期分類
 		dayMap := make(map[string][]model.AccessLog)
 		for _, log := range logs {
 			dateStr := log.AccessTime.Format("2006-01-02")
 			dayMap[dateStr] = append(dayMap[dateStr], log)
 		}
-		fmt.Println("daymap:", dayMap)
+		// fmt.Println("daymap:", dayMap)
 		otCount := 0
 		otHours := 0.0
 		warningDays := 0
 		alertDays := 0
 
 		for _, dayLogs := range dayMap {
-			fmt.Println("daylog:", dayLogs)
+			// fmt.Println("daylog:", dayLogs)
 			workHours, _ := calculateDailyWorkHours(dayLogs)
-			fmt.Println("Work hours:", workHours)
+			// fmt.Println("Work hours:", workHours)
 			if workHours > 8 {
 				otCount++
 				otHours += workHours - 8
@@ -323,7 +323,7 @@ func GenerateAlertList(db *gorm.DB, startDate, endDate string) ([]map[string]int
 //		return []string{"Sales"}
 //	}
 func GetManagedDepartments(userID string) []string {
-	fmt.Println("GetManagedDepartments called with userID:", userID)
+	// fmt.Println("GetManagedDepartments called with userID:", userID)
 	depts, err := GetManagedDepartmentsFromDB(userID)
 	if err != nil || len(depts) == 0 {
 		// fallback（或回傳空陣列）
