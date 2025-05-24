@@ -15,9 +15,9 @@ func GetAccessLogsByEmployeeBetween(db *gorm.DB, employeeID string, start, end t
 	return logs, err
 }
 
-func GetAllEmployees() ([]model.Employee, error) {
+func GetAllEmployees(db *gorm.DB) ([]model.Employee, error) {
 	var employees []model.Employee
-	err := db.DB.Find(&employees).Error
+	err := db.Find(&employees).Error
 
 	return employees, err
 }
