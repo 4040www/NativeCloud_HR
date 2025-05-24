@@ -163,7 +163,7 @@ func FetchMonthComparisonReport(db *gorm.DB, departmentID, month string) (map[st
 }
 
 func FetchMonthlyTeamReport(db *gorm.DB, departmentID, month string) (map[string]interface{}, error) {
-	employees, err := repository.GetAllEmployees()
+	employees, err := repository.GetAllEmployees(db)
 	if err != nil {
 		return nil, err
 	}
@@ -213,7 +213,7 @@ func FetchWeeklyTeamReport(db *gorm.DB, departmentID, startDate, endDate string)
 func FetchCustomPeriodTeamReport(db *gorm.DB, departmentID, startDate, endDate string) (map[string]interface{}, error) {
 	fmt.Println("⚙️ FetchCustomPeriodTeamReport called with:", departmentID, startDate, endDate)
 
-	employees, err := repository.GetAllEmployees()
+	employees, err := repository.GetAllEmployees(db)
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +254,7 @@ func FetchCustomPeriodTeamReport(db *gorm.DB, departmentID, startDate, endDate s
 }
 
 func GenerateAlertList(db *gorm.DB, startDate, endDate string) ([]map[string]interface{}, error) {
-	employees, err := repository.GetAllEmployees()
+	employees, err := repository.GetAllEmployees(db)
 	if err != nil {
 		return nil, err
 	}
