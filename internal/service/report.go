@@ -265,21 +265,24 @@ func GenerateAlertList(db *gorm.DB, startDate, endDate string) ([]map[string]int
 
 	for _, e := range employees {
 		logs, _ := repository.GetAccessLogsByEmployeeBetween(db, e.EmployeeID, start, end.Add(24*time.Hour))
-
+		fmt.Println("Employee:", e.EmployeeID)
+		fmt.Println("Logs:", logs)
 		// 將紀錄按日期分類
 		dayMap := make(map[string][]model.AccessLog)
 		for _, log := range logs {
 			dateStr := log.AccessTime.Format("2006-01-02")
 			dayMap[dateStr] = append(dayMap[dateStr], log)
 		}
-
+		fmt.Println("daymap:", dayMap)
 		otCount := 0
 		otHours := 0.0
 		warningDays := 0
 		alertDays := 0
 
 		for _, dayLogs := range dayMap {
+			fmt.Println("daylog:", dayLogs)
 			workHours, _ := calculateDailyWorkHours(dayLogs)
+			fmt.Println("Work hours:", workHours)
 			if workHours > 8 {
 				otCount++
 				otHours += workHours - 8
